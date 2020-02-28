@@ -9,9 +9,10 @@ tfrec_name = 'instances_val2017.tfrecords'
 
 
 class TfrecordMaker:
-    def __init__(self, srcpath,filename):
+    def __init__(self, srcpath,filename_json, filename_image):
         self.srcpath = srcpath
-        self.filename = filename
+        self.filename_json = filename_json
+        self.filename_image = filename_image
         self.image = None
         self.category_id = None
         self.category_ids = []
@@ -24,7 +25,7 @@ class TfrecordMaker:
         self.im_hs = []
         self.im_w = None
         self.im_ws = []
-        self.data_file = open(op.join(self.srcpath, self.filename))
+        self.data_file = open(op.join(self.srcpath, self.filename_json))
         self.data = json.load(self.data_file)
         self.annotations_list = self.data['annotations']
         self.image_list = self.data['images']
@@ -37,9 +38,13 @@ class TfrecordMaker:
     def _int64_feature(self, value):
         return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
-
     def _float_feature(self, value):
         return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
+
+    def read_imagebytes(self, filename_image):
+        image = open(filename_image, 'rb')
+        bytes = image.read()
+        return bytes
 
     def create_tf_example(self):
         with tf.io.gfile.GFile(self.srcpath, 'rb') as fid:
