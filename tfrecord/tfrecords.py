@@ -15,6 +15,10 @@ class TfrecordMaker:
         self.image = None
         self.category_id = None
         self.category_ids = []
+        self.box_x = None
+        self.box_y = None
+        self.box_w = None
+        self.box_h = None
         self.box_total = []
         self.im_h = None
         self.im_hs = []
@@ -32,6 +36,7 @@ class TfrecordMaker:
 
     def _int64_feature(self, value):
         return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+
 
     def _float_feature(self, value):
         return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
