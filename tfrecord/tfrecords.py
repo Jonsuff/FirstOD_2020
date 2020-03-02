@@ -23,6 +23,8 @@ class TfrecordMaker:
         self.box_h = None
         self.box_total = []
         self.box_with_same_id_list = []
+        self.box_resized = []
+        self.box_resized_list = []
         self.im_h = None
         self.im_hs = []
         self.im_w = None
@@ -65,7 +67,8 @@ class TfrecordMaker:
             self.box_y = object_annotations['bbox'][1]
             self.box_w = object_annotations['bbox'][2]
             self.box_h = object_annotations['bbox'][3]
-            box_list = [self.im_id,self.box_y, self.box_x, self.box_h, self.box_w]
+            self.category_id = object_annotations['category_id']
+            box_list = [self.im_id,self.box_y, self.box_x, self.box_h, self.box_w, self.category_id]
             self.box_total.append(box_list)
         return self.box_total
 
@@ -80,6 +83,18 @@ class TfrecordMaker:
             self.box_with_same_id_list.append(box_with_same_id)
             same_id_box_list = []
         return self.box_with_same_id_list
+
+    def resize_box_list(self):
+        MAX_BOX_PER_IMAGE = 65
+        for box_list in self.box_with_same_id_list:
+            box_list_array = np.array(box_list)
+            self.box_resized = np.zeros((MAX_BOX_PER_IMAGE, 5), dtype=np.int32)
+            box_count = len(box_list)
+            if box_list_array.shape != (0,):
+                self.box_resized[:box_count] = box_list_array
+            self.box_resized_list.append(self.box_resized.tolist())
+
+
 
 
 
