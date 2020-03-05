@@ -5,15 +5,16 @@ import os.path as op
 import io
 from PIL import Image
 
-tfrec_name = 'instances_val2017.tfrecords'
+
 
 
 class TfrecordMaker:
-    def __init__(self, srcpath,filename_json, filename_image):
+    def __init__(self, srcpath,filename_json, image_path):
         self.srcpath = srcpath
         self.filename_json = filename_json
-        self.filename_image = filename_image
+        self.image_path = image_path
         self.image = None
+        self.image_raw = None
         self.category_id = None
         self.category_ids = []
         self.box_x = None
@@ -21,15 +22,18 @@ class TfrecordMaker:
         self.box_w = None
         self.box_h = None
         self.box_total = []
+        self.box_with_same_id_list = []
         self.im_h = None
         self.im_hs = []
         self.im_w = None
         self.im_ws = []
+        self.im_id = None
+        self.im_ids = []
+        self.im_id_annotations = None
         self.data_file = open(op.join(self.srcpath, self.filename_json))
         self.data = json.load(self.data_file)
         self.annotations_list = self.data['annotations']
         self.image_list = self.data['images']
-        self.feature_dict = {}
 
 
     def _bytes_feature(self, value):
@@ -41,36 +45,41 @@ class TfrecordMaker:
     def _float_feature(self, value):
         return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
 
-    def read_imagebytes(self, filename_image):
-        image = open(filename_image, 'rb')
-        bytes = image.read()
-        return bytes
+    def open_image(self, filename_image):
+        self.image = np.array(Image.open(filename_image))
+        self.image_raw = self.image.tostring()
 
-    def create_tf_example(self):
-        with tf.io.gfile.GFile(self.srcpath, 'rb') as fid:
-            encoded_jpg = fid.read()
-            encoded_jpg_io = io.BytesIO(encoded_jpg)
-            self.image = Image.open(encoded_jpg_io)
-
+    def get_image_annotations(self):
         for object_images in self.image_list:
             self.im_h = object_images['height']
             self.im_hs.append(self.im_h)
             self.im_w = object_images['width']
             self.im_ws.append(self.im_w)
+            self.im_id = object_images['id']
+            self.im_ids.append(self.im_id)
 
+    def get_bbox_annotations(self):
         for object_annotations in self.annotations_list:
-            [self.box_x, self.box_y, self.box_w, self.box_h] = list(object_annotations['bbox'])
-            self.box_total.append((self.box_x, self.box_y, self.box_w, self.box_h))
-            self.category_id = int(object_annotations['category_id'])
-            self.category_ids.append(self.category_id)
+            self.im_id_annotations = object_annotations['image_id']
+            self.box_x = object_annotations['bbox'][0]
+            self.box_y = object_annotations['bbox'][1]
+            self.box_w = object_annotations['bbox'][2]
+            self.box_h = object_annotations['bbox'][3]
+            box_list = [self.im_id,self.box_y, self.box_x, self.box_h, self.box_w]
+            self.box_total.append(box_list)
+        return self.box_total
 
-        self.feature_dict = {
-            'image height':
-                self._int64_feature(self.im_hs),
-            'image width':
-                self._int64_feature(self.im_ws),
-            'bbox info':
-                self._float_feature(self.box_total),
-            'category id':
-                self._int64_feature(self.category_ids),
-            }
+    def matching_with_im_box(self,im_ids, box_total):
+        same_id_box_list = []
+        for image_id in im_ids:
+            for box_info in box_total:
+                if image_id == box_info[0]:
+                    del box_info[0]
+                    same_id_box_list.append(box_info)
+            box_with_same_id = same_id_box_list
+            self.box_with_same_id_list.append(box_with_same_id)
+            same_id_box_list = []
+        return self.box_with_same_id_list
+
+
+
