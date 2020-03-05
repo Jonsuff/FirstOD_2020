@@ -1,12 +1,15 @@
 import tensorflow as tf
-import numpy as np
-import tfrecords as Tfmaker
-import os.path as op
+import tfrecords
 import os
 
-MAX_BOX_PER_IMAGE = 10
-TfFunc = Tfmaker.TfrecordMaker()
-image_path = "/home/rilab/workspace/cocotry/val2017/"
+
+MAX_BOX_PER_IMAGE = 65
+PATH_IMAGES_HOME = "C:\\Users\\JONSUFF\\Desktop\\dataset\\val2017\\"
+FILE_NAME_HOME = "instances_val2017.json"
+PATH_ANNOTATIONS_HOME = "C:\\Users\\JONSUFF\\Desktop\\dataset\\annotations_trainval2017\\"
+TF_functions = tfrecords.TfrecordMaker(PATH_ANNOTATIONS_HOME, FILE_NAME_HOME, PATH_IMAGES_HOME)
+file_list = os.listdir(PATH_IMAGES_HOME)
+
 
 def test_tfrecords_io(filename, frames):
     write_tfrecords(filename, frames)
@@ -20,31 +23,22 @@ def test_tfrecords_io(filename, frames):
 
 def write_tfrecords(filename, frames):
     print("="*10, "Write tfrecords")
-    file_list = os.listdir(image_path)
+    image_id = TF_functions.get_image_annotations(frames)
+    box_info = TF_functions.get_bbox_annotations()
+    matched_box = TF_functions.matching_with_im_box(image_id,box_info)
+    resized_box_annotations = TF_functions.resize_box_list(MAX_BOX_PER_IMAGE, matched_box)
     with tf.io.TFRecordWriter(filename) as writer:
         for i in range(frames):
-            image_id = TfFunc.image_list[frames]['id']
-            image_file_list = [file for file in file_list if file.endswith(f"000{image_id}.jpg")]
-            image = TfFunc.open_image(op.join(image_path, image_file_list[0]))
-            # bbox 5 columns: [category id, y, x, h, w]
-
-            bbox = np.zeros((MAX_BOX_PER_IMAGE, 5), dtype=np.int32)
-            value = np.random.randint(0, 256, (numbox, 5), dtype=np.int32)
-            bbox[:numbox] = np.random.randint(0, 256, (numbox, 5), dtype=np.int32)
-            print(f"{i} image:", image[0, 0:-1:50, 1])
-            print(f"{i} bbox :", numbox, bbox[0])
-
-            # convert data
-            img_data = image.tostring()
-            img_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[img_data]))
-            box_data = bbox.tostring()
-            box_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[box_data]))
+            image_name_list = TF_functions.im_ids
+            image_file_name = [file for file in file_list if file.endswith(("0000"+image_name_list[i]))]
+            image_bytes_list = [TF_functions.open_image(PATH_IMAGES_HOME, image_file_name[0])]
+            img_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[image_bytes_list[i]]))
+            box_data = resized_box_annotations.tostring()
+            box_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[box_data[i]]))
             example_dict = {"image": img_feature, "bbox": box_feature}
             features = tf.train.Features(feature=example_dict)
             example = tf.train.Example(features=features)
             serialized = example.SerializeToString()
-
-            # write to file
             writer.write(serialized)
 
 
