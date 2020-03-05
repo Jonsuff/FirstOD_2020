@@ -60,16 +60,16 @@ class TfrecordMaker:
             self.im_id = object_images['id']
             self.im_ids.append(self.im_id)
 
-    def get_bbox_annotations(self):
-        for object_annotations in self.annotations_list:
-            self.im_id_annotations = object_annotations['image_id']
-            self.box_x = object_annotations['bbox'][0]
-            self.box_y = object_annotations['bbox'][1]
-            self.box_w = object_annotations['bbox'][2]
-            self.box_h = object_annotations['bbox'][3]
-            self.category_id = object_annotations['category_id']
-            box_list = [self.im_id,self.box_y, self.box_x, self.box_h, self.box_w, self.category_id]
-            self.box_total.append(box_list)
+    def get_bbox_annotations(self, annotations_list, frame):
+        # for object_annotations in self.annotations_list:
+        self.im_id_annotations = annotations_list[frame]['image_id']
+        self.box_x = annotations_list[frame]['bbox'][0]
+        self.box_y = annotations_list[frame]['bbox'][1]
+        self.box_w = annotations_list[frame]['bbox'][2]
+        self.box_h = annotations_list[frame]['bbox'][3]
+        self.category_id = annotations_list[frame]['category_id']
+        box_list = [self.im_id,self.box_y, self.box_x, self.box_h, self.box_w, self.category_id]
+        self.box_total.append(box_list)
         return self.box_total
 
     def matching_with_im_box(self,im_ids, box_total):
