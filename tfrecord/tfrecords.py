@@ -48,8 +48,10 @@ class TfrecordMaker:
 
     #
     def open_image(self, image_path,filename_image):
-        self.image = np.array(Image.open(op.join(image_path, filename_image)))
-        self.image_raw = self.image.tostring()
+        # self.image = np.array(Image.open(op.join(image_path, filename_image)))
+        # print(self.image.shape)
+        self.image = open(op.join(image_path,filename_image), 'rb')
+        self.image_raw = self.image.read()
         return self.image_raw
 
     def get_image_annotations(self, frame):
@@ -67,7 +69,7 @@ class TfrecordMaker:
             self.box_w = object_annotations['bbox'][2]
             self.box_h = object_annotations['bbox'][3]
             self.category_id = object_annotations['category_id']
-            box_list = [self.im_id, self.box_y, self.box_x, self.box_h, self.box_w, self.category_id]
+            box_list = [self.im_id_annotations, self.box_y, self.box_x, self.box_h, self.box_w, self.category_id]
             self.box_total.append(box_list)
         return self.box_total
 
@@ -85,12 +87,16 @@ class TfrecordMaker:
 
     def resize_box_list(self, MAX_BOX, matched_box):
         for box_list in matched_box:
-            box_list_array = np.array(box_list)
+            # print("----------",box_list)
+            box_list_array = np.array(box_list,dtype=np.int32)
+            # print("----------",box_list_array)
             self.box_resized = np.zeros((MAX_BOX, 5), dtype=np.int32)
             box_count = len(box_list)
             if box_list_array.shape != (0,):
                 self.box_resized[:box_count] = box_list_array
+            # self.box_resized_list.append(self.box_resized.tostring())
             self.box_resized_list.append(self.box_resized.tolist())
+        return self.box_resized_list
 
 
 
