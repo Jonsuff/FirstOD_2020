@@ -3,6 +3,7 @@ import tensorflow as tf
 import json
 import os.path as op
 from PIL import Image
+import cv2
 
 
 
@@ -14,6 +15,7 @@ class TfrecordMaker:
         self.image_path = image_path
         self.image = None
         self.image_raw = None
+        self.image_reshaped_array = None
         self.category_id = None
         self.category_ids = []
         self.box_x = None
@@ -48,18 +50,23 @@ class TfrecordMaker:
 
     #
     def open_image(self, image_path,filename_image):
-        # self.image = np.array(Image.open(op.join(image_path, filename_image)))
-        # print(self.image.shape)
-        self.image = open(op.join(image_path,filename_image), 'rb')
-        self.image_raw = self.image.read()
-        return self.image_raw
+        self.image = Image.open(op.join(image_path, filename_image), 'r')
+        self.im_w, self.im_h = self.image.size
+        # pixel_value = np.array(self.image.getdata())
+        # self.image_reshaped_array = pixel_value.reshape(self.im_h, self.im_w, 3)
+        # self.image_raw = reshaped_array.tostring()
+        # print(len(self.image_raw))
+        return self.image
 
     def get_image_annotations(self, frame):
         for i in range(frame):
             self.im_id = self.image_list[i]['id']
             self.im_ids.append(self.im_id)
+            self.im_w = self.image_list[i]['width']
+            self.im_ws.append(self.im_w)
+            self.im_h = self.image_list[i]['height']
+            self.im_hs.append(self.im_hs)
         return self.im_ids
-
 
     def get_bbox_annotations(self):
         for object_annotations in self.annotations_list:
@@ -98,7 +105,13 @@ class TfrecordMaker:
             self.box_resized_list.append(self.box_resized.tolist())
         return self.box_resized_list
 
-
+    def resize_image_list(self,image_data):
+        image_pix_array = np.array(image_data.getdata(), dtype=np.int32)
+        reshape_array = image_pix_array.reshape(self.im_h, self.im_w, 3)
+        resized_array = np.zeros((640,640,3), dtype=np.int32)
+        if reshape_array.shape != (0,):
+            resized_array[:self.im_h,:self.im_w] = reshape_array
+        return resized_array
 
 
 
