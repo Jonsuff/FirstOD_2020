@@ -32,14 +32,8 @@ def write_tfrecords(filename, frames):
     print("="*10, "Write tfrecords")
     anno_dict = TF_functions.get_anno_dict(TF_functions.anno_dict_maker())
     box_resized_anno = TF_functions.resizing_bbox(anno_dict)
-    # print(box_resized_anno)
-    # augmented_anno = TF_functions.augmenting_info(box_resized_anno)
-    # image_id = TF_functions.get_image_annotations(frames)
-    # resized_box_annotations_flat = [items for sublist in resized_box_annotations for items in sublist]
     image_name_list = TF_functions.get_image_annotations(frames)
-    # box_resized_array = np.array(box_resized_anno)
     box_resized_array = np.array(TF_functions.box_resized_list)
-    # print(box_resized_array)
     with tf.io.TFRecordWriter(filename) as writer:
         for i in range(frames):
             image_file_name = [file for file in file_list if file.endswith(("0000"+f"{image_name_list[i]}.jpg"))]
@@ -47,18 +41,13 @@ def write_tfrecords(filename, frames):
             print(open_image.shape)
             image_data = open_image.tostring()
             img_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[image_data]))
-            # print(box_resized_array[i].shape)
             box_info = box_resized_array[i][:, :-1]
             category_id = box_resized_array[i][:, -1]
-            # print(box_info.shape)
-            # print(category_id)
             raw_box = box_info.tostring()
             raw_category = category_id.tostring()
-            # raw_box = box_resized_array[i].tostring()
             box_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[raw_box]))
             category_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[raw_category]))
             example_dict = {"image": img_feature, "bbox": box_feature, "category": category_feature}
-            # example_dict = {"image": img_feature, "bbox": box_feature}
             features = tf.train.Features(feature=example_dict)
             example = tf.train.Example(features=features)
             serialized= example.SerializeToString()
@@ -68,8 +57,6 @@ def write_tfrecords(filename, frames):
 def read_tfrecords(filename, epoch, batch, shuffle):
     print("="*10, "Read tfrecords")
     dataset = tf.data.TFRecordDataset([filename])
-    # convert bytes to original type
-    # each example is parsed in 'parse_example'
     dataset = dataset.map(parse_example)
     # set epoch, batch size, shuffle
     return dataset_process(dataset, epoch=epoch, batch=batch, shuffle=shuffle)
