@@ -12,10 +12,14 @@ class TfrecordMaker:
         self.image_path = image_path
         self.im_h = None
         self.im_w = None
+        self.shrink_rate_w = 1
+        self.shrink_rate_h = 1
         self.im_ids = []
+        self.box_resized_list = []
         self.data_file = open(op.join(self.srcpath, self.filename_json))
         self.data = json.load(self.data_file)
         self.annotations_list = self.data['annotations']
+        self.annotations_dict = {}
         self.image_list = self.data['images']
 
 
@@ -28,62 +32,70 @@ class TfrecordMaker:
     def _float_feature(self, value):
         return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
 
-    #
-    def open_image(self, image_path,filename_image):
+    def anno_dict_maker(self):
+        for i in self.annotations_list:
+            im_id = i['image_id']
+            self.annotations_dict.update({f"{im_id}": [], "category_list": []})
+        return self.annotations_dict
+
+    def get_anno_dict(self, annotations_dict):
+        for anno in self.annotations_list:
+            im_id = anno['image_id']
+            bbox = anno['bbox']
+            box_x = bbox[0]
+            box_y = bbox[1]
+            box_w = bbox[2]
+            box_h = bbox[3]
+            ordered_bbox = [box_y, box_x, box_h, box_w]
+            cate = anno['category_id']
+            ordered_bbox.append(cate)
+            if f"{im_id}" in annotations_dict.keys():
+                annotations_dict[f"{im_id}"].append(ordered_bbox)
+            else:
+                annotations_dict.update({f"{im_id}": ordered_bbox})
+        return annotations_dict
+
+    def resizing_bbox(self, annotations_dict):
+        for i in annotations_dict.keys():
+            box_array = np.array(annotations_dict[i])
+            box_resized = np.zeros((65, 5), dtype=np.float64)
+            box_count = len(annotations_dict[i])
+            if box_array.shape != (0,):
+                box_resized[:box_count] = box_array
+            self.box_resized_list.append(box_resized.tolist())
+        for i, ids in enumerate(annotations_dict):
+            annotations_dict[ids] = self.box_resized_list[i]
+        return annotations_dict
+
+    def augmenting_info(self, annotations_dict):
+        augmented_info = {}
+        for iminfo in self.image_list:
+            img_id = iminfo['id']
+            if f"{img_id}" not in annotations_dict.keys():
+                annotations_dict[f"{img_id}"] = np.zeros((65, 5), dtype=np.int32)
+            else:
+                newinfo = {iminfo['id']: {'imsize': [iminfo['height'], iminfo['width']],
+                                          'bbox': annotations_dict[f"{img_id}"]}}
+                augmented_info.update(newinfo)
+        return augmented_info
+
+    def open_resize_image(self, image_path, filename_image):
         image = Image.open(op.join(image_path, filename_image), 'r')
         self.im_w, self.im_h = image.size
-        return image
+        self.shrink_rate_w, self.shrink_rate_h = 224 / self.im_w, 224 / self.im_h
+        im_resized = image.resize((224, 224))
+        im_array = np.array(im_resized)
+        return im_array
+        # pixel_array = np.array(image.getdata(), dtype=np.uint8)
+        # reshape_array = pixel_array.reshape(self.im_h, self.im_w, 3)
+        # resized_array = np.zeros((640, 640, 3), dtype=np.uint8)
+        # if reshape_array.shape != (0,):
+        #     resized_array[:self.im_h, :self.im_w] = reshape_array
+        # return resized_array
 
-    def get_image_annotations(self, frame):
+    def get_image_annotations(self,frame):
         for i in range(frame):
             im_id = self.image_list[i]['id']
             self.im_ids.append(im_id)
         return self.im_ids
-
-    def get_bbox_annotations(self):
-        box_total = []
-        for object_annotations in self.annotations_list:
-            im_id_annotations = object_annotations['image_id']
-            box_x = object_annotations['bbox'][0]
-            box_y = object_annotations['bbox'][1]
-            box_w = object_annotations['bbox'][2]
-            box_h = object_annotations['bbox'][3]
-            category_id = object_annotations['category_id']
-            box_list = [im_id_annotations, box_y, box_x, box_h, box_w, category_id]
-            box_total.append(box_list)
-        return box_total
-
-    def matching_with_im_box(self, im_ids, box_total):
-        same_id_box_list = []
-        box_with_same_id_list = []
-        for image_id in im_ids:
-            for box_info in box_total:
-                if image_id == box_info[0]:
-                    del box_info[0]
-                    same_id_box_list.append(box_info)
-            box_with_same_id = same_id_box_list
-            box_with_same_id_list.append(box_with_same_id)
-            same_id_box_list = []
-        return box_with_same_id_list
-
-    def resize_box_list(self, max_box, matched_box):
-        box_resized_list = []
-        for box_list in matched_box:
-            box_list_array = np.array(box_list,dtype=np.int32)
-            box_resized = np.zeros((max_box, 5), dtype=np.int32)
-            box_count = len(box_list)
-            if box_list_array.shape != (0,):
-                box_resized[:box_count] = box_list_array
-            box_resized_list.append(box_resized.tolist())
-        return box_resized_list
-
-    def resize_image_list(self, image_data):
-        image_pix_array = np.array(image_data.getdata(), dtype=np.uint8)
-        reshape_array = image_pix_array.reshape(self.im_h, self.im_w, 3)
-        resized_array = np.zeros((640,640,3), dtype=np.uint8)
-        if reshape_array.shape != (0,):
-            resized_array[:self.im_h, :self.im_w] = reshape_array
-        return resized_array
-
-
 
