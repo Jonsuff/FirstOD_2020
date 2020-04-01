@@ -12,8 +12,11 @@ class TfrecordMaker:
         self.image_path = image_path
         self.im_h = None
         self.im_w = None
+        self.size_list = []
         self.shrink_rate_w = 1
+        self.shrink_rate_w_list = []
         self.shrink_rate_h = 1
+        self.shrink_rate_h_list = []
         self.im_ids = []
         self.box_resized_list = []
         self.data_file = open(op.join(self.srcpath, self.filename_json))
@@ -21,6 +24,7 @@ class TfrecordMaker:
         self.annotations_list = self.data['annotations']
         self.annotations_dict = {}
         self.image_list = self.data['images']
+
 
 
     def _bytes_feature(self, value):
@@ -46,7 +50,7 @@ class TfrecordMaker:
             box_y = bbox[1]
             box_w = bbox[2]
             box_h = bbox[3]
-            ordered_bbox = [box_y, box_x, box_h, box_w]
+            ordered_bbox = [box_x, box_y, box_w, box_h]
             cate = anno['category_id']
             ordered_bbox.append(cate)
             if f"{im_id}" in annotations_dict.keys():
@@ -54,6 +58,24 @@ class TfrecordMaker:
             else:
                 annotations_dict.update({f"{im_id}": ordered_bbox})
         return annotations_dict
+
+    # def get_anno_dict_yolo(self, annotations_dict):
+    #     for anno in self.annotations_list:
+    #         im_id = anno['image_id']
+    #         bbox = anno['bbox']
+    #         box_x = bbox[0]
+    #         center_x =
+    #         box_y = bbox[1]
+    #         box_w = bbox[2]
+    #         box_h = bbox[3]
+    #         ordered_bbox = [box_h, box_w, box_y, box_x]
+    #         cate = anno['category_id']
+    #         ordered_bbox.append(cate)
+    #         if f"{im_id}" in annotations_dict.keys():
+    #             annotations_dict[f"{im_id}"].append(ordered_bbox)
+    #         else:
+    #             annotations_dict.update({f"{im_id}": ordered_bbox})
+    #     return annotations_dict
 
     def resizing_bbox(self, annotations_dict):
         for i in annotations_dict.keys():
@@ -79,23 +101,40 @@ class TfrecordMaker:
                 augmented_info.update(newinfo)
         return augmented_info
 
-    def open_resize_image(self, image_path, filename_image):
-        image = Image.open(op.join(image_path, filename_image), 'r')
-        self.im_w, self.im_h = image.size
-        self.shrink_rate_w, self.shrink_rate_h = 224 / self.im_w, 224 / self.im_h
-        im_resized = image.resize((224, 224))
-        im_array = np.array(im_resized)
-        return im_array
-        # pixel_array = np.array(image.getdata(), dtype=np.uint8)
-        # reshape_array = pixel_array.reshape(self.im_h, self.im_w, 3)
-        # resized_array = np.zeros((640, 640, 3), dtype=np.uint8)
-        # if reshape_array.shape != (0,):
-        #     resized_array[:self.im_h, :self.im_w] = reshape_array
-        # return resized_array
+    # def open_image(self, image_path, filename_image):
+    #     image = Image.open(op.join(image_path, filename_image))
+    #     self.im_w, self.im_h = image.size
+    #     self.shrink_rate_w, self.shrink_rate_h = 224 / self.im_w, 224 / self.im_h
+    #     return image
 
-    def get_image_annotations(self,frame):
-        for i in range(frame):
-            im_id = self.image_list[i]['id']
-            self.im_ids.append(im_id)
+    def open_resize_image(self, image_path, filename_image):
+        image = Image.open(op.join(image_path, filename_image))
+        self.im_w, self.im_h = image.size
+        self.shrink_rate_w, self.shrink_rate_h = 416 / self.im_w, 416 / self.im_h
+        self.shrink_rate_w_list.append(self.shrink_rate_w)
+        self.shrink_rate_h_list.append(self.shrink_rate_h)
+        self.size_list.append([self.im_w, self.im_h])
+        # print(self.size_list)
+        im_resized = image.resize((416, 416))
+        im_array = np.array(im_resized)
+        if image.mode != "RGB":
+            np.expand_dims(im_array, axis=0)
+            im_array.resize(3,416,416)
+        return im_array
+
+    def get_usable_image_ids(self):
+        for anno in self.annotations_list:
+            image_id = anno['image_id']
+            if image_id in self.im_ids:
+                pass
+            else:
+                self.im_ids.append(image_id)
         return self.im_ids
+
+    def get_image_annotations(self, frame):
+        usable_ids = []
+        self.get_usable_image_ids()
+        for i in range(frame):
+            usable_ids.append(self.im_ids[i])
+        return usable_ids
 
