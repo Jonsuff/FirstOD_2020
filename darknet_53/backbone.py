@@ -1,5 +1,5 @@
 import tensorflow as tf
-import CommonFunctions as common
+import common.CommonFunctions as common
 
 def darknet53(input_data):
 
