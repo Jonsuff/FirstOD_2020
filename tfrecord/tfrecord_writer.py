@@ -20,15 +20,18 @@ class TfrecordWriter:
         with tf.io.TFRecordWriter(filename) as writer:
             for id in image_data.keys():
                 bbox_array = np.array(bbox_per_im[f"{id}"])
-                
-                bbox_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[bbox_array.tostring()]))
+                raw_box = bbox_array[:, :4]
+                raw_cate = bbox_array[:, 4:]
+                print(raw_cate.shape)
+                bbox_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[raw_box.tostring()]))
+                cate_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[raw_cate.tostring()]))
                 img_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[image_data[f"{id}"].tostring()]))
-                example_dict = {"image": img_feature, "bbox": bbox_feature}
+
+                example_dict = {"image": img_feature, "bbox": bbox_feature, "category": cate_feature}
                 features = tf.train.Features(feature=example_dict)
                 example = tf.train.Example(features=features)
                 serialized = example.SerializeToString()
                 writer.write(serialized)
-
 
     def read_json(self):
         with open(op.join(self.data_root, self.data_file), "r") as instance_json:
@@ -47,14 +50,12 @@ class TfrecordWriter:
             size_dict.update({f"{id}": [height, width]})
         return size_dict
 
-
     def anno_dict_maker(self, images):
         bbox_wrapped = {}
         for im in images:
             im_id = im['id']
             bbox_wrapped.update({f"{im_id}": []})
         return bbox_wrapped
-
 
     def make_bbox_per_im_dict(self, annotations, bbox_wrapped, images):
         size = self.get_image_size(images)
@@ -81,7 +82,6 @@ class TfrecordWriter:
                 bbox_wrapped.update({f"{imid_anno}": bbox_with_cate})
         return bbox_wrapped
 
-
     def get_bbox_data(self, annotations, bbox_wrapped, images):
         bbox_per_im = self.make_bbox_per_im_dict(annotations, bbox_wrapped, images)
         bbox_resized_list = []
@@ -102,18 +102,20 @@ class TfrecordWriter:
         img_dict = {}
         for i, im_id in enumerate(bbox_per_im.keys()):
             image_file_name = [file for file in cfg.FILE_LIST if file.endswith(("000" + f"{im_id}.jpg"))]
-            print(bbox_per_im[f"{im_id}"])
+            # print(bbox_per_im[f"{im_id}"])
             image_data = cv2.imread(op.join(cfg.PATH_TO_IMAGES,image_file_name[0]))
-            image_data = cv2.resize(image_data, (cfg.SIZE, cfg.SIZE))
+            image_data = cv2.resize(image_data, (cfg.SIZE_H, cfg.SIZE_W))
             img_dict.update({f"{im_id}": image_data})
+
+            img_dict.update({f"{im_id}": image_data})
+            print(f"Writing-----------[{i} / {frame}]--------------------")
             if i == frame-1:
                 break
         return img_dict
 
-
 def main():
     writer = TfrecordWriter(cfg.DATA_ROOT, cfg.INSTANCES_VAL2017)
-    writer.write_tfrecords(cfg.TFRECORD_FILENAME, frame=1)
+    writer.write_tfrecords(cfg.TFRECORD_FILENAME, frame=1000)
 
 
 if __name__ == "__main__":
