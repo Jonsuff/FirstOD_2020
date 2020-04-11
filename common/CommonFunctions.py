@@ -14,23 +14,23 @@ class BatchNormalization(tf.keras.layers.BatchNormalization):
         training = tf.logical_and(training, self.trainable)
         return super().call(x, training)
 
+
 def convolutional(input_layer, filters_shape, downsample=False, activate=True, bn=True):
     if downsample:
         input_layer = tf.keras.layers.ZeroPadding2D(((1, 0), (1, 0)))(input_layer)
         padding = 'valid'
         strides = 2
+        print(input_layer.shape)
     else:
         strides = 1
         padding = 'same'
-
-    conv = tf.keras.layers.Conv2D(filters=filters_shape[-1], kernel_size =filters_shape[0], strides=strides, padding=padding)(input_layer)
-
+    conv = tf.keras.layers.Conv2D(filters=filters_shape[-1], kernel_size=filters_shape[0], strides=strides, padding=padding)(input_layer)
     if bn:
         conv = BatchNormalization()(conv)
     if activate == True:
-        conv = tf.nn.leaky_relu(conv, alpha=0.1)
-
+        conv = tf.nn.relu(conv)
     return conv
+
 
 def residual_block(input_layer, input_channel, filter_num1, filter_num2):
     short_cut = input_layer
@@ -39,6 +39,7 @@ def residual_block(input_layer, input_channel, filter_num1, filter_num2):
 
     residual_output = short_cut + conv
     return residual_output
+
 
 def upsample(input_layer):
     return tf.image.resize(input_layer, (input_layer.shape[1] * 2, input_layer.shape[2] * 2), method='nearest')
