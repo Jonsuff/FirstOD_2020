@@ -2,8 +2,10 @@ from setting.config import Config as cfg
 import os.path as op
 import numpy as np
 import tensorflow as tf
+from utils.data_process_utils import box_scale_processing as bsp
 import json
 import cv2
+
 
 class TfrecordWriter:
     def __init__(self, data_root, filename):
@@ -13,20 +15,32 @@ class TfrecordWriter:
 
     def write_tfrecords(self, filename, frame):
         print("=" * 10, "Write tfrecords")
+        cate_zeros = [0] * 90
+
         annotations, images = self.read_json()
         bbox_wrapped = self.anno_dict_maker(images)
         bbox_per_im = self.get_bbox_data(annotations, bbox_wrapped, images)
         image_data = self.get_image_data(bbox_per_im, frame)
         with tf.io.TFRecordWriter(filename) as writer:
             for id in image_data.keys():
+                cate_list = []
                 bbox_array = np.array(bbox_per_im[f"{id}"])
                 raw_box = bbox_array[:, :4]
                 raw_cate = bbox_array[:, 4:]
                 print(raw_cate.shape)
+                for i in raw_cate:
+                    cate = cate_zeros.copy()
+                    if int(i) == 0:
+                        pass
+                    else:
+                        cate[int(i)-1] = 1
+                    cate_list.append(cate)
+                # print(cate)
+                cate_list = np.array(cate_list)
                 bbox_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[raw_box.tostring()]))
-                cate_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[raw_cate.tostring()]))
+                # cate_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[raw_cate.tostring()]))
+                cate_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[cate_list.tostring()]))
                 img_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[image_data[f"{id}"].tostring()]))
-
                 example_dict = {"image": img_feature, "bbox": bbox_feature, "category": cate_feature}
                 features = tf.train.Features(feature=example_dict)
                 example = tf.train.Example(features=features)
@@ -77,9 +91,14 @@ class TfrecordWriter:
             yolo_h = box_h / height
             bbox_with_cate = [yolo_x, yolo_y, yolo_w, yolo_h, category]
             if f"{imid_anno}" in bbox_wrapped.keys():
-                bbox_wrapped[f"{imid_anno}"].append(bbox_with_cate)
+                if len(bbox_wrapped[f"{imid_anno}"]) < cfg.MAX_BOX_PER_IMAGE:
+                    bbox_wrapped[f"{imid_anno}"].append(bbox_with_cate)
+                    # print(len(bbox_wrapped[f"{imid_anno}"]))
+                else:
+                    pass
             else:
                 bbox_wrapped.update({f"{imid_anno}": bbox_with_cate})
+            # print(bbox_wrapped)
         return bbox_wrapped
 
     def get_bbox_data(self, annotations, bbox_wrapped, images):
@@ -87,7 +106,7 @@ class TfrecordWriter:
         bbox_resized_list = []
         for i in bbox_per_im.keys():
             box_array = np.array(bbox_per_im[i])
-            box_resized = np.zeros((65, 5), dtype=np.float64)
+            box_resized = np.zeros((cfg.MAX_BOX_PER_IMAGE, 5), dtype=np.float64)
             box_count = len(bbox_per_im[i])
             if box_array.shape != (0,):
                 box_resized[:box_count] = box_array
@@ -95,6 +114,17 @@ class TfrecordWriter:
         for i, ids in enumerate(bbox_per_im):
             bbox_per_im[ids] = bbox_resized_list[i]
         return bbox_per_im
+
+    def get_scaled_bbox_data(self, frame):
+        annotations, images = self.read_json()
+        bbox_wrapped = self.anno_dict_maker(images)
+        bbox_per_im = self.get_bbox_data(annotations, bbox_wrapped, images)
+        image_data = self.get_image_data(bbox_per_im, frame)
+        for id in image_data.keys():
+            bbox_array = np.array(bbox_per_im[f"{id}"])
+            bbox_scaled = bsp(bbox_array)
+            for a in bbox_scaled[0][:,:,:,:2].all() != 0:
+                print(bbox_scaled[0][:,:,:,:2])
 
     def get_image_data(self, bbox_per_im, frame):
         if frame == "all":
@@ -108,15 +138,16 @@ class TfrecordWriter:
             img_dict.update({f"{im_id}": image_data})
 
             img_dict.update({f"{im_id}": image_data})
-            print(f"Writing-----------[{i} / {frame}]--------------------")
+            # print(f"Writing-----------[{i} / {frame}]--------------------")
             if i == frame-1:
                 break
         return img_dict
 
 def main():
-    writer = TfrecordWriter(cfg.DATA_ROOT, cfg.INSTANCES_VAL2017)
-    writer.write_tfrecords(cfg.TFRECORD_FILENAME, frame=1000)
-
+    # writer = TfrecordWriter(cfg.DATA_ROOT, cfg.INSTANCES_VAL2017)
+    # writer.write_tfrecords(cfg.TFRECORD_FILENAME, frame=3000)
+    test = TfrecordWriter(cfg.DATA_ROOT, cfg.INSTANCES_VAL2017)
+    test.get_scaled_bbox_data(10)
 
 if __name__ == "__main__":
     main()
