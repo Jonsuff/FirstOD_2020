@@ -7,11 +7,10 @@ import math
 from utils.utils import Utils as util
 
 np.random.seed(1)
-
+utility = util()
 
 def iou_test():
     # preparing data
-    utility = util()
     bbox1 = [0.4,0.4,0.8,0.8]
     bbox2 = [0.5,0.5,0.8,0.8]
     bbox3 = [0.6,0.6,0.8,0.8]
@@ -21,35 +20,43 @@ def iou_test():
         bbox3.append(0)
     bbox_pred = [bbox1, bbox2, bbox3]*169
     bbox_pred = np.array(bbox_pred)
-    bbox_pred = np.reshape(bbox_pred, [1, 507, 95])
+    bbox_pred = np.reshape(bbox_pred, [1, 13, 13, 3, 95])
     bbox_pred = tf.cast(bbox_pred, dtype=tf.float64)
     bbox_grtr = [[0.6, 0.6, 0.8, 0.8]] * 30
+    bbox_grtr2 = [[0.4, 0.4, 0.4, 0.4]] * 30
+    bbox_grtr3 = [[0.2, 0.2, 0.2, 0.2]] * 30
     bbox_grtr = np.array(bbox_grtr)
-    bbox_grtr = np.reshape(bbox_grtr, [1, 30, 4])
+    bbox_grtr = np.reshape(bbox_grtr, [1, 1, 30, 4])
+    bbox_grtr2 = np.reshape(bbox_grtr2, [1, 1, 30, 4])
+    bbox_grtr3 = np.reshape(bbox_grtr3, [1, 1, 30, 4])
     bbox_grtr = tf.cast(bbox_grtr, dtype=tf.float64)
+    bbox_grtr2 = tf.cast(bbox_grtr2, dtype=tf.float64)
+    bbox_grtr3 = tf.cast(bbox_grtr3, dtype=tf.float64)
 
     # iou calculation by pre-made function
-    iou = utility.get_iou(bbox_pred, bbox_grtr)
+    iou = utility.get_iou(bbox_pred, bbox_grtr, bbox_grtr2, bbox_grtr3)
 
     # iou calculation manually with known answer
-    manually_intersection1 = (416*0.6)**2
-    manually_intersection2 = (416*0.7)**2
-    manually_union1 = ((416*0.8) ** 2)*2 - manually_intersection1
-    manually_union2 = ((416*0.8) ** 2)*2 - manually_intersection2
-    manually_iou1 = manually_intersection1 / manually_union1
-    manually_iou2 = manually_intersection2 / manually_union2
-    manually_iou3 = 1
-    manually_calculated = [[manually_iou1]*30, [manually_iou2]*30, [manually_iou3]*30] * 169
+    manually_intersection11 = (416*0.6)**2
+    manually_intersection22 = (416 * 0.4) ** 2
+    manually_intersection33 = (416 * 0.1) ** 2
+
+    manually_union11 = ((416*0.8) ** 2)*2 - manually_intersection11
+    manually_union22 = ((416*0.8) ** 2) + ((416*0.4) **2) - manually_intersection22
+    manually_union33 = ((416*0.8) ** 2) + ((416*0.2) **2) - manually_intersection33
+    manually_iou11 = manually_intersection11 / manually_union11
+    manually_iou22 = manually_intersection22 / manually_union22
+    manually_iou33 = manually_intersection33 / manually_union33
+    manually_calculated = [[[manually_iou11]*169] *30, [[manually_iou22]*169] *30, [[manually_iou33]*169] * 30]
     manually_calculated = np.array(manually_calculated)
     manually_calculated = tf.cast(manually_calculated, dtype=tf.float64)
-    manually_calculated = tf.reshape(manually_calculated, [1, 507, 30])
+    manually_calculated = tf.reshape(manually_calculated, [1, 3, 30, 169])
 
     assert np.isclose(iou.numpy(), manually_calculated.numpy()).all()
     print("Function(calculating iou) testing process is over. No errors occurred")
 
 
 def bbox_loss_test():
-    utility = util()
     # preparing data
     bbox1 = [0.3, 0.3, 0.6, 0.6]
     bbox2 = [0.4, 0.4, 0.6, 0.6]
@@ -126,12 +133,17 @@ def gather_nd_test():
     bbox_best = tf.gather_nd(bbox_pred, label_indices, batch_dims=1)
     print("Best bbox data : ",bbox_best)
 
+def obj_loss_test():
+    bbox_pred = np.random.rand(1, 507, 95)
+    obj_loss = utility.object_loss(bbox_pred)
+    print(obj_loss)
 
 def main():
-    gather_nd_test()
+    # gather_nd_test()
     iou_test()
-    bbox_loss_test()
+    # bbox_loss_test()
+    # obj_loss_test()
 
-    
+
 if __name__ == "__main__":
     main()
