@@ -33,9 +33,9 @@ class TfrecordReader:
         decoded["category_m"] = tf.io.decode_raw(parsed["category_m"], tf.float64)
         decoded["category_s"] = tf.io.decode_raw(parsed["category_s"], tf.float64)
         decoded["image"] = tf.reshape(decoded["image"], shape=(cfg.SIZE_H, cfg.SIZE_W, 3))
-        decoded["bbox_l"] = tf.reshape(decoded["bbox_l"], shape=(cfg.SIZE_LBOX, cfg.SIZE_LBOX, 3, 4))
-        decoded["bbox_m"] = tf.reshape(decoded["bbox_m"], shape=(cfg.SIZE_MBOX, cfg.SIZE_MBOX, 3, 4))
-        decoded["bbox_s"] = tf.reshape(decoded["bbox_s"], shape=(cfg.SIZE_SBOX, cfg.SIZE_SBOX, 3, 4))
+        decoded["bbox_l"] = tf.reshape(decoded["bbox_l"], shape=(cfg.MAX_BOX_PER_IMAGE, 4))
+        decoded["bbox_m"] = tf.reshape(decoded["bbox_m"], shape=(cfg.MAX_BOX_PER_IMAGE, 4))
+        decoded["bbox_s"] = tf.reshape(decoded["bbox_s"], shape=(cfg.MAX_BOX_PER_IMAGE, 4))
         # decoded["category"] = tf.reshape(decoded["category"], shape=(cfg.MAX_BOX_PER_IMAGE, ))
         decoded["category_l"] = tf.reshape(decoded["category_l"], shape=(cfg.SIZE_LBOX, cfg.SIZE_LBOX, 3,
                                                                          cfg.NUM_CLASS+1))
@@ -60,9 +60,9 @@ def main():
     dataset = reader.get_dataset()
     print(dataset)
     for i in dataset:
-        lbbox = i["bbox_l"]
         lcate = i["category_l"]
-        print(lbbox.numpy())
+        lbbox = i["bbox_l"]
+        print(lbbox)
 
 
 if __name__ == "__main__":
