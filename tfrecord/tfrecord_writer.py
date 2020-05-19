@@ -19,19 +19,16 @@ class TfrecordWriter:
         bbox_per_im = self.get_scaled_bbox_data(frame)
         with tf.io.TFRecordWriter(filename) as writer:
             for i, id in enumerate(self.image_data.keys()):
-                sbbox_array = bbox_per_im[f"{id}"][0][:,:,:,:4]
-                mbbox_array = bbox_per_im[f"{id}"][1][:,:,:,:4]
-                lbbox_array = bbox_per_im[f"{id}"][2][:,:,:,:4]
-                scate_array = bbox_per_im[f"{id}"][0][:,:,:, 4]
-                mcate_array = bbox_per_im[f"{id}"][1][:,:,:, 4]
-                lcate_array = bbox_per_im[f"{id}"][2][:,:,:, 4]
+                sbbox_array = bbox_per_im[f"{id}"][:, 2, :, :4]
+                mbbox_array = bbox_per_im[f"{id}"][:, 1, :, :4]
+                lbbox_array = bbox_per_im[f"{id}"][:, 0, :, :4]
+                scate_array = bbox_per_im[f"{id}"][:, 2, :,  4]
+                mcate_array = bbox_per_im[f"{id}"][:, 1, :,  4]
+                lcate_array = bbox_per_im[f"{id}"][:, 0, :,  4]
+                category_s = self.one_hot(scate_array, cfg.SIZE_SBOX)
+                category_m = self.one_hot(mcate_array, cfg.SIZE_MBOX)
+                category_l = self.one_hot(lcate_array, cfg.SIZE_LBOX)
 
-                category_s = self.one_hot(scate_array)
-                category_m = self.one_hot(mcate_array)
-                category_l = self.one_hot(lcate_array)
-                print(category_s.shape)
-
-                # print(raw_bbox.shape)
                 lbbox_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[lbbox_array.tostring()]))
                 mbbox_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[mbbox_array.tostring()]))
                 sbbox_feature = tf.train.Feature(bytes_list=tf.train.BytesList(value=[sbbox_array.tostring()]))
@@ -42,7 +39,7 @@ class TfrecordWriter:
                 example_dict = {"image": img_feature, "bbox_l": lbbox_feature, "bbox_m": mbbox_feature,
                                 "bbox_s": sbbox_feature, "category_l": lcate_feature, "category_m": mcate_feature,
                                 "category_s": scate_feature}
-                # print(f"Parsing----------data--------[{i+1} / {frame}]-----------------")
+                print(f"Parsing----------data--------[{i+1} / {frame}]-----------------")
                 features = tf.train.Features(feature=example_dict)
                 example = tf.train.Example(features=features)
                 serialized = example.SerializeToString()
@@ -141,20 +138,18 @@ class TfrecordWriter:
                 break
         return img_dict
 
-    def one_hot(self, category):
-        h, w, c = category.shape
-        cate_zeros = np.zeros([h, w, c, cfg.NUM_CLASS+1])
-        category = np.reshape(category, [h * w * c])
+    def one_hot(self, category, grid_size):
+        b, label = category.shape
+        cate_zeros = np.zeros([grid_size, grid_size, 3, cfg.NUM_CLASS+1])
+        category = np.reshape(category, [label])
         cate_onehot = cate_zeros.copy()
-        cate_onehot = np.reshape(cate_onehot, [h * w * c, cfg.NUM_CLASS+1])
-
+        cate_onehot = np.reshape(cate_onehot, [grid_size * grid_size * 3, cfg.NUM_CLASS+1])
         for i, idx in enumerate(category):
             if idx != 0.0:
                 cate_onehot[i][int(idx)] = 1
             else:
                 pass
-
-        cate_onehot = np.reshape(cate_onehot, [h, w, c, cfg.NUM_CLASS+1])
+        cate_onehot = np.reshape(cate_onehot, [grid_size, grid_size, 3, cfg.NUM_CLASS+1])
         return cate_onehot
 
 
