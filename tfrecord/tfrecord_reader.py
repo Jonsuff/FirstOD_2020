@@ -21,16 +21,28 @@ class TfrecordReader:
 
     def parse_example(self, example):
         feature = tf.io.FixedLenFeature([], tf.string)
-        feature_dict = {"image": feature, "bbox": feature, "category": feature}
+        feature_dict = {"image": feature, "bbox_l": feature, "bbox_m": feature, "bbox_s": feature,
+                        "category_l": feature, "category_m": feature, "category_s": feature}
         parsed = tf.io.parse_single_example(example, feature_dict)
         decoded = dict()
         decoded["image"] = tf.io.decode_raw(parsed["image"], tf.uint8)
-        decoded["bbox"] = tf.io.decode_raw(parsed["bbox"], tf.float64)
-        decoded["category"] = tf.io.decode_raw(parsed["category"], tf.float64)
+        decoded["bbox_l"] = tf.io.decode_raw(parsed["bbox_l"], tf.float64)
+        decoded["bbox_m"] = tf.io.decode_raw(parsed["bbox_m"], tf.float64)
+        decoded["bbox_s"] = tf.io.decode_raw(parsed["bbox_s"], tf.float64)
+        decoded["category_l"] = tf.io.decode_raw(parsed["category_l"], tf.float64)
+        decoded["category_m"] = tf.io.decode_raw(parsed["category_m"], tf.float64)
+        decoded["category_s"] = tf.io.decode_raw(parsed["category_s"], tf.float64)
         decoded["image"] = tf.reshape(decoded["image"], shape=(cfg.SIZE_H, cfg.SIZE_W, 3))
-        decoded["bbox"] = tf.reshape(decoded["bbox"], shape=(cfg.MAX_BOX_PER_IMAGE, 4))
-        decoded["category"] = tf.reshape(decoded["category"], shape=(cfg.MAX_BOX_PER_IMAGE,))
-        # decoded["category"] = tf.reshape(decoded["category"], shape=(MAX_BOX_PER_IMAGE, 1))
+        decoded["bbox_l"] = tf.reshape(decoded["bbox_l"], shape=(cfg.SIZE_LBOX, cfg.SIZE_LBOX, 3, 4))
+        decoded["bbox_m"] = tf.reshape(decoded["bbox_m"], shape=(cfg.SIZE_MBOX, cfg.SIZE_MBOX, 3, 4))
+        decoded["bbox_s"] = tf.reshape(decoded["bbox_s"], shape=(cfg.SIZE_SBOX, cfg.SIZE_SBOX, 3, 4))
+        # decoded["category"] = tf.reshape(decoded["category"], shape=(cfg.MAX_BOX_PER_IMAGE, ))
+        decoded["category_l"] = tf.reshape(decoded["category_l"], shape=(cfg.SIZE_LBOX, cfg.SIZE_LBOX, 3,
+                                                                         cfg.NUM_CLASS+1))
+        decoded["category_m"] = tf.reshape(decoded["category_m"], shape=(cfg.SIZE_MBOX, cfg.SIZE_MBOX, 3,
+                                                                         cfg.NUM_CLASS+1))
+        decoded["category_s"] = tf.reshape(decoded["category_s"], shape=(cfg.SIZE_SBOX, cfg.SIZE_SBOX, 3,
+                                                                         cfg.NUM_CLASS+1))
         # you can do preprocess here, e.g. convert image type from uint8 (0~255) to float (0~1)
         # ...
         return decoded
@@ -44,15 +56,13 @@ class TfrecordReader:
 
 
 def main():
-    count = 0
     reader = TfrecordReader(cfg.EPOCH, cfg.BATCH_SIZE, False, cfg.TFRECORD_FILENAME)
     dataset = reader.get_dataset()
     print(dataset)
     for i in dataset:
-        bbox = i["bbox"]
-        print(bbox.numpy())
-        count += 1
-        print(count)
+        lbbox = i["bbox_l"]
+        lcate = i["category_l"]
+        print(lbbox.numpy())
 
 
 if __name__ == "__main__":
